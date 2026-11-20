@@ -48,13 +48,22 @@ adjustment a flat forecast is exactly the house baseline, which the
 refresh pushes entirely outside its band.
 
 Spread (calibration, not just width): the logit spread sigma combines,
-in quadrature, a random-walk term 0.5*sqrt(horizon in days) (the house
-baseline's scale), the residual scatter of the fit, an extrapolation
-penalty that grows with the log-time distance from the last read to the
-target, and -- for flat histories -- a refresh uncertainty for the
-per-trophy dispersion of the refresh.  sigma is clamped to [0.35, 2.0]
-logit units.  Quantiles are the normal quantiles of the median's logit
-+- z_tau * sigma.
+in quadrature, a random-walk term 0.25*sqrt(horizon in days), the residual
+scatter of the fit, an extrapolation penalty that grows with the log-time
+distance from the last read to the target, and -- for flat histories -- a
+refresh uncertainty for the per-trophy dispersion of the refresh.  sigma
+is clamped to [0.35, 1.2] logit units.  Quantiles are the normal quantiles
+of the median's logit +- z_tau * sigma.  The 0.25 scale is recalibrated,
+not the house baseline's 0.5: on 5 synthetic long-horizon cases (2d
+history -> 4.5d target, the final case's shape) the medians miss by
+0.2-0.4pp while the 0.5 scale over-covers (90% coverage 1.00), so the
+narrower spread cuts mean pinball loss ~40% (0.233 -> 0.140) with
+coverage still 1.00; it also holds under a stress variant with irregular
+refreshes, per-read noise and per-trophy growth jitter (0.245 -> 0.152,
+coverage 1.00).  An earners/players decomposition variant was tried and
+REJECTED: its medians miss by 1.3-4.1pp on the same cases (its power-law
+P(t) extrapolation mis-fits stepped refresh growth), losing to this
+rate-based model despite the cleaner theory.
 
 Backtests: on the practice cases, with answers
 reconstructed from the published refresh totals (3,868 players / 4,276
@@ -62,7 +71,8 @@ trophies earned), pinball loss ~0.16 vs the starter's ~1.40, and the
 advantage holds under faster/slower earner-growth reconstructions
 (0.20-0.22 vs 1.23-1.69).  On synthetic long-horizon cases (2 days of
 stepped history, 4.5-day horizon, logistic truth) the saturating model
-beats persistence; the linear-log-time version did not, which is why
+beats persistence (pinball ~0.14 with the recalibrated spread, vs ~0.30
+for the starter); the linear-log-time version did not, which is why
 the saturation is here.
 
 Run:  MAKEFUN_INPUT_DIR=input MAKEFUN_OUTPUT_DIR=out python3 main.py
@@ -85,9 +95,9 @@ LEVELS = [0.05, 0.25, 0.5, 0.75, 0.95]
 Z = [-1.645, -0.674, 0.0, 0.674, 1.645]
 
 # --- tuned constants (from the rules' stated refresh facts + backtests) ---
-RW_SIGMA = 0.5          # logit random-walk sigma per sqrt(day), house scale
+RW_SIGMA = 0.25         # logit random-walk sigma per sqrt(day), recalibrated: backtests show median misses ~0.1 logit, the house 0.5 scale over-covers (coverage 1.00)
 SIGMA_MIN = 0.35
-SIGMA_MAX = 2.0
+SIGMA_MAX = 1.2
 # First observed Exophase refresh (RULES.txt): players 638 -> 3868 (x6.06),
 # earners of non-100% trophies 305 -> 408 (x1.34).  Rate factor 1.34/6.06.
 REFRESH_PLAYERS_X = 3868.0 / 638.0
